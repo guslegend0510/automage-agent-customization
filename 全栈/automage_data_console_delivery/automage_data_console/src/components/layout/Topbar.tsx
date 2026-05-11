@@ -2,19 +2,29 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Database, ShieldCheck } from 'lucide-react'
 import { knownRisk } from '../../config/constants'
 import { apiClient } from '../../lib/apiClient'
-import { useIdentityStore } from '../../store/useIdentityStore'
+import { useAuth } from '../../contexts/AuthContext'
 import { useRuntimeStore } from '../../store/useRuntimeStore'
 import { useRunContextStore } from '../../store/useRunContextStore'
-import { RoleSwitcher } from './RoleSwitcher'
 
 export function Topbar() {
-  const { identity } = useIdentityStore()
+  const { user } = useAuth()
   const { demoMode, enableRealWrite, setDemoMode, setEnableRealWrite } = useRuntimeStore()
   const { runDate, setRunDate } = useRunContextStore()
 
+  // Minimal identity for health check
+  const healthIdentity = {
+    userId: user?.username ?? 'system',
+    role: (user?.role ?? 'staff') as 'staff' | 'manager' | 'executive',
+    nodeId: 'console',
+    level: (user?.level ?? 'l1_staff') as 'l1_staff' | 'l2_manager' | 'l3_executive',
+    managerNodeId: '',
+    orgId: user?.org_id ?? 'org_automage_mvp',
+    departmentId: user?.department_id ?? 'dept_mvp_core',
+  }
+
   const health = useQuery({
     queryKey: ['healthz', 'top'],
-    queryFn: () => apiClient.healthz(identity),
+    queryFn: () => apiClient.healthz(healthIdentity),
     refetchInterval: 45_000,
   })
 
@@ -32,7 +42,7 @@ export function Topbar() {
         <div className="space-y-1">
           <p className="text-lg font-semibold text-slate-900">AutoMage-2 数据中台 / 组织运行控制台</p>
           <p className="text-xs text-slate-600">
-            org={identity.orgId} | dept={identity.departmentId} | user={identity.userId}
+            org={user?.org_id ?? '—'} | dept={user?.department_id ?? '—'} | user={user?.display_name ?? user?.username ?? '—'}
           </p>
         </div>
 
@@ -41,7 +51,6 @@ export function Topbar() {
             运行日
             <input type="date" className="rounded border border-slate-200 px-2 py-1 text-sm" value={runDate} onChange={(e) => setRunDate(e.target.value)} />
           </label>
-          <RoleSwitcher />
           <button
             type="button"
             onClick={() => setDemoMode(!demoMode)}

@@ -8,12 +8,25 @@ export interface HeaderMeta {
   headers: Record<string, string>
 }
 
+function getJwtToken(): string | null {
+  try {
+    return localStorage.getItem('automage_access_token')
+  } catch {
+    return null
+  }
+}
+
 export const buildHeaders = (identity: IdentityProfile, withIdem = true): HeaderMeta => {
   const requestId = createRequestId('automage')
   const idempotencyKey = createIdempotencyKey('automage')
+
+  // JWT priority > shared Bearer token
+  const jwtToken = getJwtToken()
+  const authToken = jwtToken ? `Bearer ${jwtToken}` : `Bearer ${appEnv.authToken}`
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${appEnv.authToken}`,
+    Authorization: authToken,
     'X-User-Id': identity.userId,
     'X-Role': identity.role,
     'X-Node-Id': identity.nodeId,

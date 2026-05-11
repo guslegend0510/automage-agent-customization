@@ -29,9 +29,42 @@ _DEFAULT_LEVEL_BY_ROLE = {
 class AuthenticatedActor:
     identity: AgentIdentity
     token: str | None = None
+    from_jwt: bool = False  # True when authenticated via JWT (user login)
 
 
 def get_current_actor(request: Request) -> AuthenticatedActor | None:
+    """Resolve actor identity from JWT (user login) or X-* headers (OpenClaw agent).
+
+    Priority: JWT in Authorization header > X-* headers with shared Bearer token.
+    """
+    authorization = request.headers.get("Authorization", "")
+
+    # --- Path 1: JWT token (user login) ---
+    if authorization.startswith("Bearer ") and _is_jwt_token(authorization[7:]):
+        try:
+            from automage_agents.server.auth_api import decode_token as jwt_decode
+            data = jwt_decode(authorization[7:])
+            if data.get("type") != "access":
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid access token")
+            from automage_agents.core.enums import AgentLevel, AgentRole
+            role_str = data.get("role", "staff")
+            role = AgentRole(role_str) if role_str in {r.value for r in AgentRole} else AgentRole.STAFF
+            level_str = data.get("level", "l1_staff")
+            level = AgentLevel(level_str) if level_str in {l.value for l in AgentLevel} else AgentLevel.L1_STAFF
+            identity = AgentIdentity(
+                node_id=f"jwt_{data.get('username', data.get('sub', ''))}",
+                user_id=data.get("username", data.get("sub", "")),
+                role=role,
+                level=level,
+                department_id=data.get("department_id"),
+            )
+            return AuthenticatedActor(identity=identity, token=authorization[7:], from_jwt=True)
+        except Exception as e:
+            if "401" in str(e) or "expired" in str(e).lower() or "invalid" in str(e).lower():
+                raise
+            # Fall through to header-based auth
+
+    # --- Path 2: Shared Bearer token + X-* headers (OpenClaw / 墨智) ---
     if not _settings.auth_enabled:
         return _parse_actor_from_headers(request, required=False)
 
@@ -39,15 +72,20 @@ def get_current_actor(request: Request) -> AuthenticatedActor | None:
     if not expected_token:
         raise HTTPException(status_code=500, detail="Server auth is enabled but auth_token is not configured")
 
-    authorization = request.headers.get("Authorization", "")
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing or invalid bearer token")
     if token != expected_token:
+        # Don't raise yet — try JWT path
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid bearer token")
 
     actor = _parse_actor_from_headers(request, required=True)
     return AuthenticatedActor(identity=actor.identity, token=token)
+
+
+def _is_jwt_token(token: str) -> bool:
+    """Heuristic: JWT tokens have 3 dot-separated segments."""
+    return token.count(".") == 2 and len(token) > 20
 
 
 def require_roles(*allowed_roles: AgentRole) -> Callable[[AuthenticatedActor | None], AuthenticatedActor | None]:
@@ -73,6 +111,9 @@ def assert_actor_has_role(actor: AuthenticatedActor | None, *allowed_roles: Agen
 
 def assert_identity_matches_actor(actor: AuthenticatedActor | None, payload: IdentityPayload, *, db: Session | None = None) -> None:
     if actor is None:
+        return
+    # JWT-authenticated users are already verified — skip header identity check
+    if actor.from_jwt:
         return
     identity = actor.identity
     mismatches: list[str] = []
