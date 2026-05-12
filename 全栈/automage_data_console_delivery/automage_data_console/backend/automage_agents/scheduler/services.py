@@ -163,14 +163,6 @@ def generate_pending_manager_summaries(
         generated_department_ids.append(department_id)
         source_record_count += len(records)
 
-        # Chain: auto-trigger Dream if need_executive_decision is not empty
-        need_exec = report.get("need_executive_decision") or report.get("blocked_items")
-        if need_exec and summary_public_id:
-            try:
-                _auto_trigger_dream(db, summary_public_id, department, manager)
-            except Exception:
-                pass  # Dream failure shouldn't block summary generation
-
     return ManagerAutoSummaryResult(
         summary_date=summary_date.isoformat(),
         generated_summary_ids=generated_summary_ids,
@@ -412,104 +404,6 @@ def _first_text(value: Any) -> str:
 def _clip(value: str, fallback: str, limit: int = 40) -> str:
     text = str(value or "").strip()
     return text[:limit] or fallback
-
-
-def _auto_trigger_dream(
-    db: Session,
-    summary_public_id: str,
-    department: DepartmentModel,
-    manager: UserModel,
-) -> None:
-    """Automatically trigger Dream decision after summary generation when needed."""
-    from automage_agents.server.service import run_dream_from_summary
-    from automage_agents.core.models import AgentIdentity
-    from automage_agents.core.enums import AgentRole, AgentLevel
-
-    # Find the summary ID
-    summary = db.query(SummaryModel).filter(
-        SummaryModel.public_id == summary_public_id,
-        SummaryModel.deleted_at.is_(None),
-    ).first()
-    if not summary:
-        return
-
-    exec_identity = AgentIdentity(
-        node_id="executive_agent_boss_001",
-        user_id="chenzong",
-        role=AgentRole.EXECUTIVE,
-        level=AgentLevel.L3_EXECUTIVE,
-        department_id=department.public_id,
-    )
-
-    dream_result = run_dream_from_summary(
-        db,
-        summary_id=str(summary.id),
-        actor_identity=exec_identity,
-        request_id=f"scheduler-dream-{summary.public_id}",
-    )
-
-    # If decision required, push to boss WeChat
-    decision_options = dream_result.get("decision_options", [])
-    if decision_options:
-        try:
-            _push_decision_to_boss(dream_result, department, manager)
-        except Exception:
-            pass
-
-
-def _push_decision_to_boss(
-    dream_result: dict,
-    department: DepartmentModel,
-    manager: UserModel,
-) -> None:
-    """Push Dream A/B decision to boss via WeChat."""
-    import json
-    import urllib.request
-
-    summary = dream_result.get("manager_summary", {})
-    options = dream_result.get("decision_options", [])
-
-    risk_lines = ""
-    top_risks = summary.get("top_3_risks", [])
-    for i, risk in enumerate(top_risks[:3], 1):
-        icon = "🔴" if "风险" in str(risk) or "阻塞" in str(risk) else "🟡"
-        risk_lines += f"\n{icon} {risk}"
-
-    option_lines = ""
-    for opt in options[:2]:
-        option_lines += f"\n\n🅰 {opt.get('title', '方案')}" if opt.get('option_id') == 'A' else f"\n\n🅱 {opt.get('title', '方案')}"
-        option_lines += f"\n{opt.get('summary', '')}"
-
-    message = (
-        f"📋 AutoMage 决策推送\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"来源：{dream_result.get('summary_public_id', '—')}\n"
-        f"日期：{summary.get('summary_date', '—')}\n"
-        f"健康度：{'🟢' if summary.get('overall_health') == 'green' else '🟡' if summary.get('overall_health') == 'yellow' else '🔴'}\n"
-        f"━━━ 风险 ━━━{risk_lines}\n"
-        f"━━━ 方案 ━━━{option_lines}\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"请回复 A 或 B 确认选择方案。"
-    )
-
-    # Try to push via OpenClaw webhook if configured
-    webhook_url = "https://openclaw.ai/webhook"
-    try:
-        payload = {
-            "channel": "openclaw-weixin",
-            "to": "o9cq80-4ZTet7x8h6pGOsyDexBik@im.wechat",
-            "message": message,
-            "source": "automage-scheduler",
-        }
-        req = urllib.request.Request(
-            webhook_url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        urllib.request.urlopen(req, timeout=5)
-    except Exception:
-        pass  # Webhook push is best-effort; OpenClaw cron handles the primary push
 
 
 def _department_public_id(department: DepartmentModel) -> str:

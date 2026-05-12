@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { PageHeader } from '../../components/common/PageHeader'
 import { useAuth } from '../../contexts/AuthContext'
 import { useRunContextStore } from '../../store/useRunContextStore'
 import { identityProfiles } from '../../config/identities'
@@ -65,25 +67,35 @@ export function StaffReportPage() {
   })
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">写日报</h2>
-      <p className="text-xs text-slate-500">运行日: {runDate} | 用户: {identity.userId}</p>
+    <div className="space-y-8">
+      <PageHeader title="写日报" description={`运行日 ${runDate} · 用户 ${identity.userId}`} />
       <textarea
-        className="h-32 w-full rounded-lg border border-slate-200 p-3 text-sm"
+        className="input h-36 resize-y"
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="今天完成了什么工作？遇到了什么问题？明天的计划是什么？"
       />
       <button
+        type="button"
         onClick={() => submit.mutate()}
         disabled={submit.isPending || !text.trim()}
-        className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-40"
+        className="btn-primary disabled:opacity-40"
       >
         {submit.isPending ? '提交中…' : '提交日报'}
       </button>
       {errors.length > 0 && <p className="text-sm text-rose-600">{errors.join('；')}</p>}
-      {lastResult?.code === 200 && <p className="text-sm text-emerald-600">✅ {lastResult.msg}</p>}
-      {lastResult?.code === 409 && <p className="text-sm text-amber-600">⚠️ {lastResult.msg}（今日已提交过）</p>}
+      {lastResult?.code === 200 && (
+        <p className="flex items-center gap-2 text-sm text-emerald-700">
+          <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+          {lastResult.msg}
+        </p>
+      )}
+      {lastResult?.code === 409 && (
+        <p className="flex items-center gap-2 text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+          {lastResult.msg}（今日已提交过）
+        </p>
+      )}
     </div>
   )
 }

@@ -1,21 +1,34 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { Building2, CheckCircle2, QrCode, UserPlus } from 'lucide-react'
 
 export function RegisterPage() {
   const [step, setStep] = useState<'form' | 'qrcode' | 'done'>('form')
-  const [form, setForm] = useState({ username: '', password: '', display_name: '', phone: '', job_title: '', department_id: 'dept_mvp_core' })
+  const [form, setForm] = useState({
+    username: '',
+    password: '',
+    display_name: '',
+    phone: '',
+    job_title: '',
+    department_id: 'dept_mvp_core',
+  })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
 
   const checkUsername = async (username: string) => {
-    if (username.length < 2) { setUsernameAvailable(null); return }
+    if (username.length < 2) {
+      setUsernameAvailable(null)
+      return
+    }
     try {
       const res = await fetch(`/api/v1/onboarding/check-username?username=${encodeURIComponent(username)}`)
       const d = await res.json()
       setUsernameAvailable(d.data?.available ?? null)
-    } catch { setUsernameAvailable(null) }
+    } catch {
+      setUsernameAvailable(null)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,8 +45,8 @@ export function RegisterPage() {
       if (!res.ok) throw new Error(d.detail || '注册失败')
       setUserId(d.data?.user_id ?? null)
       setStep('qrcode')
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '注册失败')
     } finally {
       setLoading(false)
     }
@@ -58,116 +71,161 @@ export function RegisterPage() {
     }
   }
 
-  // Step 1: Registration form
+  const shell = (children: ReactNode) => (
+    <div className="login-bg flex min-h-screen items-center justify-center px-4 py-10">{children}</div>
+  )
+
   if (step === 'form') {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-lg">
-          <h1 className="mb-1 text-center text-2xl font-bold text-slate-900">AutoMage</h1>
-          <p className="mb-6 text-center text-sm text-slate-500">新员工注册</p>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">用户名 *</label>
-              <input type="text" value={form.username}
-                onChange={(e) => { setForm({ ...form, username: e.target.value }); checkUsername(e.target.value) }}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" required />
-              {usernameAvailable === false && <p className="text-xs text-red-500 mt-1">用户名已被使用</p>}
-              {usernameAvailable === true && <p className="text-xs text-emerald-500 mt-1">可用</p>}
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">密码 *</label>
-              <input type="password" value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" required minLength={4} />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">显示姓名 *</label>
-              <input type="text" value={form.display_name}
-                onChange={(e) => setForm({ ...form, display_name: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" required />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">手机号</label>
-              <input type="tel" value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" placeholder="用于飞书绑定" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">岗位</label>
-              <input type="text" value={form.job_title}
-                onChange={(e) => setForm({ ...form, job_title: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" placeholder="例如：销售专员" />
-            </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <button type="submit" disabled={loading || usernameAvailable === false}
-              className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
-              {loading ? '注册中…' : '下一步：绑定飞书'}
-            </button>
-          </form>
-          <p className="mt-4 text-center text-xs text-slate-400">
-            已有账户？<Link to="/login" className="text-blue-600 hover:underline">登录</Link>
-          </p>
+    return shell(
+      <div className="panel w-full max-w-md p-10">
+        <div className="mb-8 flex gap-4 border-b border-slate-100 pb-8">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white">
+            <UserPlus className="h-6 w-6" strokeWidth={1.5} aria-hidden />
+          </span>
+          <div>
+            <h1 className="text-base font-semibold tracking-tight text-slate-900">新员工注册</h1>
+            <p className="mt-1 text-sm text-slate-500">创建账户后将引导完成飞书绑定与激活</p>
+          </div>
         </div>
-      </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">用户名 *</label>
+            <input
+              type="text"
+              value={form.username}
+              onChange={(e) => {
+                setForm({ ...form, username: e.target.value })
+                checkUsername(e.target.value)
+              }}
+              className="input"
+              required
+            />
+            {usernameAvailable === false && <p className="mt-1 text-xs text-rose-600">用户名已被使用</p>}
+            {usernameAvailable === true && <p className="mt-1 text-xs text-emerald-700">可用</p>}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">密码 *</label>
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className="input"
+              required
+              minLength={4}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">显示姓名 *</label>
+            <input
+              type="text"
+              value={form.display_name}
+              onChange={(e) => setForm({ ...form, display_name: e.target.value })}
+              className="input"
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">手机号</label>
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              className="input"
+              placeholder="用于飞书绑定"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">岗位</label>
+            <input
+              type="text"
+              value={form.job_title}
+              onChange={(e) => setForm({ ...form, job_title: e.target.value })}
+              className="input"
+              placeholder="例如：销售专员"
+            />
+          </div>
+          {error && <p className="text-sm text-rose-600">{error}</p>}
+          <button type="submit" disabled={loading || usernameAvailable === false} className="btn-primary w-full">
+            {loading ? '提交中…' : '下一步：绑定飞书'}
+          </button>
+        </form>
+        <p className="mt-6 text-center text-xs text-slate-500">
+          已有账户？{' '}
+          <Link to="/login" className="link font-medium text-slate-800 no-underline hover:underline">
+            返回登录
+          </Link>
+        </p>
+      </div>,
     )
   }
 
-  // Step 2: Feishu bind
   if (step === 'qrcode') {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg text-center space-y-4">
-          <h1 className="text-xl font-bold text-slate-900">绑定飞书智能体</h1>
-          <p className="text-sm text-slate-600">
-            注册信息已保存。请通过飞书联系 <strong>墨智</strong> 完成入职：
-          </p>
+    return shell(
+      <div className="panel w-full max-w-lg p-10">
+        <div className="mb-6 flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-700">
+            <QrCode className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight text-slate-900">绑定飞书</h1>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">
+              注册信息已保存。请通过飞书联系 <span className="font-medium text-slate-800">墨智</span> 完成入职流程。
+            </p>
+          </div>
+        </div>
 
-          <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-6">
-            <p className="font-semibold text-blue-800 mb-3">方式一：飞书扫码</p>
+        <div className="callout mb-4 text-left">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">方式一 · 扫码添加</p>
+          <div className="flex flex-col items-center sm:flex-row sm:items-start sm:gap-6">
             <img
               src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://applink.feishu.cn/client/bot/open?appId=cli_aa8bbf4af4f8dbee"
               alt="飞书扫码添加 Auto01"
-              className="mx-auto w-48 h-48 rounded-xl border border-slate-200"
+              className="h-48 w-48 rounded-lg border border-slate-200 bg-white"
             />
-            <p className="text-xs text-slate-500 mt-2">打开飞书扫一扫添加 <strong>Auto01</strong></p>
-          </div>
-
-          <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4">
-            <p className="font-semibold text-emerald-800 mb-1">方式二：飞书搜索</p>
-            <p className="text-sm text-emerald-700">在飞书中搜索 <strong>「Auto01」</strong></p>
-            <p className="text-xs text-slate-500 mt-1">
-              发送消息：<code className="bg-white px-1 rounded">入职 {form.display_name}，手机号 {form.phone || '未填'}</code>
+            <p className="mt-3 max-w-xs text-center text-xs text-slate-500 sm:mt-0 sm:text-left">
+              打开飞书扫一扫，添加机器人 <span className="font-medium text-slate-700">Auto01</span>
             </p>
           </div>
-
-          <p className="text-xs text-slate-400">
-            墨智会在飞书中向你提问（岗位职责、直属上级等），回答完成后账户自动激活。
-          </p>
-
-          <div className="flex gap-2 justify-center pt-2">
-            <button onClick={completeOnboarding} disabled={loading}
-              className="rounded-lg bg-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-300 disabled:opacity-50">
-              {loading ? '处理中…' : '跳过飞书，直接激活'}
-            </button>
-            <Link to="/login"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
-              前往登录
-            </Link>
-          </div>
         </div>
-      </div>
+
+        <div className="callout-warn mb-6 text-left">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-900/80">方式二 · 搜索添加</p>
+          <p className="text-sm text-amber-950">在飞书中搜索「Auto01」，发送：</p>
+          <code className="mt-2 block rounded border border-amber-200/60 bg-white/80 px-3 py-2 text-xs text-slate-800">
+            入职 {form.display_name}，手机号 {form.phone || '未填'}
+          </code>
+        </div>
+
+        <p className="mb-6 text-center text-xs leading-relaxed text-slate-500">
+          墨智将在飞书中确认岗位职责与直属上级等信息，完成后账户自动激活。
+        </p>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <button type="button" onClick={completeOnboarding} disabled={loading} className="btn-secondary sm:min-w-[10rem]">
+            {loading ? '处理中…' : '跳过飞书，直接激活'}
+          </button>
+          <Link to="/login" className="btn-primary inline-flex justify-center text-center sm:min-w-[10rem]">
+            前往登录
+          </Link>
+        </div>
+      </div>,
     )
   }
 
-  // Step 3: Done
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100">
-      <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-lg text-center">
-        <h1 className="mb-2 text-2xl font-bold text-emerald-600">入职完成</h1>
-        <p className="mb-4 text-slate-600">欢迎 <strong>{form.display_name}</strong>！</p>
-        <p className="text-sm text-slate-500 mb-6">账户已激活，现在可以登录使用。</p>
-        <Link to="/login" className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">前往登录</Link>
+  return shell(
+    <div className="panel w-full max-w-md p-10 text-center">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80">
+        <CheckCircle2 className="h-7 w-7" strokeWidth={1.75} aria-hidden />
       </div>
-    </div>
+      <h1 className="text-lg font-semibold text-slate-900">入职完成</h1>
+      <p className="mt-2 text-sm text-slate-600">
+        欢迎 <span className="font-medium text-slate-900">{form.display_name}</span>
+      </p>
+      <p className="mt-2 text-sm text-slate-500">账户已激活，请使用控制台登录。</p>
+      <Link to="/login" className="btn-primary mt-8 inline-flex w-full justify-center sm:w-auto sm:min-w-[12rem]">
+        <Building2 className="h-4 w-4 opacity-90" aria-hidden />
+        前往登录
+      </Link>
+    </div>,
   )
 }

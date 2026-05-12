@@ -1,4 +1,4 @@
-"""推送 API — 老板微信推送、员工日报提醒"""
+"""推送 API — 老板微信推送、调度器任务队列"""
 
 from __future__ import annotations
 
@@ -18,9 +18,112 @@ from automage_agents.db.models import (
     WorkRecordModel,
     UserModel,
 )
+from automage_agents.scheduler.orchestrator import (
+    get_orchestrator_state,
+    generate_and_push_tasks,
+    ensure_scheduler_tasks_table,
+)
 from automage_agents.server.deps import get_db_session
 
-router = APIRouter(prefix="/internal/push", tags=["push"])
+router = APIRouter(prefix="/internal", tags=["internal"])
+
+
+# ── Scheduler Task Queue API ──
+
+
+class TaskCompleteRequest(BaseModel):
+    result: dict = Field(default_factory=dict, description="执行结果")
+    error: str | None = Field(default=None)
+
+
+@router.get("/scheduler/pending", summary="墨智轮询领取待办任务")
+def get_pending_tasks(db: Session = Depends(get_db_session)):
+    """墨智定期调用此接口获取需要执行的任务列表。"""
+    ensure_scheduler_tasks_table(db)
+    rows = db.execute(
+        text(
+            "SELECT id, task_type, instruction, task_data, created_at "
+            "FROM scheduler_tasks WHERE status = 'pending' "
+            "ORDER BY created_at ASC LIMIT 10"
+        )
+    ).fetchall()
+
+    items = []
+    for r in rows:
+        items.append({
+            "task_id": r[0],
+            "type": r[1],
+            "instruction": r[2],
+            "data": r[3] if isinstance(r[3], dict) else json.loads(str(r[3])) if r[3] else {},
+            "created_at": str(r[4]),
+        })
+
+    # 生成新的任务（基于当前状态）
+    new_tasks = generate_and_push_tasks(db)
+
+    return {
+        "code": 200,
+        "data": {
+            "tasks": items,
+            "total": len(items),
+            "new_tasks_generated": len(new_tasks),
+        },
+        "msg": "ok",
+    }
+
+
+@router.post("/scheduler/claim/{task_id}", summary="墨智认领任务")
+def claim_task(task_id: int, db: Session = Depends(get_db_session)):
+    """墨智开始执行任务前调用，标记任务为 claimed，防止重复执行。"""
+    r = db.execute(
+        text("UPDATE scheduler_tasks SET status='claimed', claimed_at=NOW() WHERE id=:id AND status='pending' RETURNING id"),
+        {"id": task_id},
+    ).fetchone()
+    db.commit()
+    if not r:
+        raise HTTPException(status_code=404, detail="任务不存在或已被领取")
+    return {"code": 200, "data": {"task_id": task_id, "status": "claimed"}, "msg": "任务已领取"}
+
+
+@router.post("/scheduler/complete/{task_id}", summary="墨智完成任务")
+def complete_task(task_id: int, payload: TaskCompleteRequest, db: Session = Depends(get_db_session)):
+    """墨智执行完成后调用，标记任务完成。"""
+    r = db.execute(
+        text(
+            "UPDATE scheduler_tasks SET status='completed', completed_at=NOW(), "
+            "result = CAST(:r AS jsonb), error_message = :e "
+            "WHERE id = :id AND status = 'claimed' RETURNING id"
+        ),
+        {"id": task_id, "r": json.dumps(payload.result), "e": payload.error},
+    ).fetchone()
+    db.commit()
+    if not r:
+        raise HTTPException(status_code=404, detail="任务不存在或状态不对")
+    return {"code": 200, "data": {"task_id": task_id, "status": "completed"}, "msg": "任务完成"}
+
+
+@router.post("/scheduler/tick", summary="手动触发一次调度检查")
+def scheduler_tick(db: Session = Depends(get_db_session)):
+    """手动触发调度器检查（调试用）。生产环境中由后台线程自动调用。"""
+    state = get_orchestrator_state(db)
+    created = generate_and_push_tasks(db)
+    return {
+        "code": 200,
+        "data": {
+            "state": {
+                "date": state.check_date,
+                "reports": state.submitted_reports,
+                "missing": state.missing_staff,
+                "pending_summaries": state.pending_summaries,
+                "pending_decisions": state.pending_decisions,
+            },
+            "new_tasks": created,
+        },
+        "msg": "ok",
+    }
+
+
+# ── WeChat Push ──
 
 
 class WechatPushRequest(BaseModel):

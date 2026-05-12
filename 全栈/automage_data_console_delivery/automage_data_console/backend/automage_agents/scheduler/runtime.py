@@ -14,6 +14,7 @@ from automage_agents.scheduler.jobs import (
     build_staff_daily_reminder_job,
     health_check_job,
 )
+from automage_agents.scheduler.orchestrator import orchestrator_tick
 
 
 logger = logging.getLogger("automage.scheduler")
@@ -84,6 +85,15 @@ def build_scheduler_runtime(settings: RuntimeSettings | None = None) -> Schedule
             limit=runtime_settings.scheduler_task_record_limit,
         ),
     }
+    # 编排器始终添加，不依赖配置
+    jobs.append(
+        SchedulerJob(
+            name="orchestrator_tick",
+            interval_seconds=300,
+            enabled=True,
+            handler=lambda: orchestrator_tick("configs/automage.docker.toml"),
+        )
+    )
     for item in runtime_settings.scheduler_jobs:
         name = str(item.get("name") or "").strip()
         handler = handler_map.get(name)

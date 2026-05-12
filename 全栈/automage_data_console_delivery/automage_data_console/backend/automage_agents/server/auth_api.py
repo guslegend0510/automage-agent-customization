@@ -147,6 +147,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db_session)):
                 "level": level,
                 "department_id": str(user.meta.get("department_id", "")) if user.meta else "",
                 "org_id": str(user.org_id),
+                "meta": dict(user.meta) if user.meta else {},
             },
         },
         "msg": "登录成功",

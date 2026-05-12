@@ -11,7 +11,7 @@ export function RoleSwitcher() {
           key={item}
           type="button"
           onClick={() => setRole(item)}
-          className={`status-pill ${role === item ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'}`}
+          className={`status-pill ${role === item ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700'}`}
         >
           {identityProfiles[item].role}
         </button>

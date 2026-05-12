@@ -50,7 +50,7 @@ export function DreamRunPanel() {
   return (
     <div className="grid gap-3 lg:grid-cols-2">
       <div className="console-panel p-4">
-        <p className="console-title mb-2">Dream Run</p>
+        <p className="console-title mb-2">沙箱预演</p>
         <p className="text-sm text-slate-600">
           调用 <code className="text-xs">POST /internal/dream/run</code>，请求体字段 <code className="text-xs">summary_id</code> 与联调验收包一致。请求头使用 Executive 身份（chenzong）。
         </p>
@@ -75,7 +75,7 @@ export function DreamRunPanel() {
       <JsonViewer title="Dream 输出（data 字段）" data={displayData} />
       <ConfirmDialog
         open={confirmOpen}
-        title="真实写入：Dream Run"
+        title="真实写入：沙箱预演"
         description={`将调用 POST /internal/dream/run，summary_id=${inputId || '（空）'}。请确认顶部已开启 Real Write，且已配置 Token。`}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => void run()}

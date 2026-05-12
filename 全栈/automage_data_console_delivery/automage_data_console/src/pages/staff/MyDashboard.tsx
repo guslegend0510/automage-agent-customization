@@ -1,4 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
+import { AlertCircle, CheckCircle2, ClipboardList, ListTodo } from 'lucide-react'
+import { PageHeader } from '../../components/common/PageHeader'
 import { useAuth } from '../../contexts/AuthContext'
 import { apiClient } from '../../lib/apiClient'
 import { useRunContextStore } from '../../store/useRunContextStore'
@@ -43,45 +46,76 @@ export function StaffMyDashboard() {
   const pendingTasks = tasks.filter((t: any) => t.status === 'pending' || t.status === 'in_progress')
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">我的首页</h2>
-      <div className="grid gap-3 md:grid-cols-3">
+    <div className="space-y-8">
+      <PageHeader title="我的首页" description="今日日报与任务处理情况一览。" />
+      <div className="grid gap-4 md:grid-cols-3">
         <MetricCard
           title="今日日报"
-          value={todayReport ? '✅ 已提交' : '⚠️ 未提交'}
-          hint={todayReport ? `日期: ${runDate}` : `请前往 Staff 工作台提交 (${runDate})`}
-          color={todayReport ? 'emerald' : 'amber'}
+          value={
+            todayReport ? (
+              <span className="inline-flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" strokeWidth={2} aria-hidden />
+                已提交
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600" strokeWidth={2} aria-hidden />
+                未提交
+              </span>
+            )
+          }
+          hint={todayReport ? `运行日 ${runDate}` : `请在「写日报」中提交（${runDate}）`}
+          accent={todayReport ? 'emerald' : 'amber'}
         />
         <MetricCard
           title="待处理任务"
-          value={String(pendingTasks.length)}
-          hint={pendingTasks.length > 0 ? `${pendingTasks.length} 个任务等待处理` : '暂无待处理任务'}
-          color={pendingTasks.length > 3 ? 'rose' : 'blue'}
+          value={
+            <span className="inline-flex items-center gap-2">
+              <ListTodo className="h-5 w-5 text-slate-500" strokeWidth={2} aria-hidden />
+              {String(pendingTasks.length)}
+            </span>
+          }
+          hint={pendingTasks.length > 0 ? `${pendingTasks.length} 项待处理` : '暂无待处理'}
+          accent={pendingTasks.length > 3 ? 'rose' : 'slate'}
         />
         <MetricCard
-          title="总任务数"
-          value={String(tasks.length)}
-          hint="所有分配给我的任务"
-          color="slate"
+          title="任务总量"
+          value={
+            <span className="inline-flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-slate-500" strokeWidth={2} aria-hidden />
+              {String(tasks.length)}
+            </span>
+          }
+          hint="当前分配给我的全部任务"
+          accent="slate"
         />
       </div>
     </div>
   )
 }
 
-function MetricCard({ title, value, hint, color }: { title: string; value: string; hint: string; color: string }) {
-  const colors: Record<string, string> = {
-    emerald: 'border-emerald-200 bg-emerald-50',
-    amber: 'border-amber-200 bg-amber-50',
-    rose: 'border-rose-200 bg-rose-50',
-    blue: 'border-blue-200 bg-blue-50',
-    slate: 'border-slate-200 bg-slate-50',
+function MetricCard({
+  title,
+  value,
+  hint,
+  accent,
+}: {
+  title: string
+  value: ReactNode
+  hint: string
+  accent: 'emerald' | 'amber' | 'rose' | 'slate'
+}) {
+  const bar: Record<string, string> = {
+    emerald: 'border-l-emerald-600',
+    amber: 'border-l-amber-500',
+    rose: 'border-l-rose-600',
+    slate: 'border-l-slate-400',
   }
   return (
-    <div className={`console-panel rounded-lg border p-4 ${colors[color] ?? colors.slate}`}>
-      <p className="text-xs text-slate-500">{title}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
-      <p className="mt-1 text-xs text-slate-500">{hint}</p>
+    <div className={`console-panel border-l-[3px] p-5 ${bar[accent]}`}>
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>
+      <div className="mt-2 text-2xl font-semibold text-slate-900">{value}</div>
+      <p className="mt-2 text-xs leading-relaxed text-slate-500">{hint}</p>
     </div>
   )
 }

@@ -8,6 +8,7 @@ interface User {
   level: string
   department_id: string
   org_id: string
+  meta?: Record<string, unknown>
 }
 
 interface AuthState {

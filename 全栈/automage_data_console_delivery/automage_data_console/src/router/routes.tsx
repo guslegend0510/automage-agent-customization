@@ -4,8 +4,8 @@ import { RegisterPage } from '../pages/RegisterPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { StaffMyDashboard } from '../pages/staff/MyDashboard'
 import { StaffReportPage } from '../pages/staff/ReportPage'
-import { StaffTaskPage } from '../pages/staff/TaskPage'
 import { StaffNotificationsPage } from '../pages/staff/NotificationsPage'
+import { MyAssignedTasksPage } from '../pages/MyAssignedTasksPage'
 import { DepartmentOverviewPage } from '../pages/manager/DepartmentOverviewPage'
 import { StaffManagementPage } from '../pages/manager/StaffManagementPage'
 import { AuditCenterPage } from '../pages/manager/AuditCenterPage'
@@ -31,12 +31,14 @@ export const routes = createBrowserRouter([
     path: '/',
     element: <AuthGuard><App /></AuthGuard>,
     children: [
+      // 新路由请同步到 src/config/navigation.ts，否则侧栏无法进入该页
       // 通用
       { index: true, element: <DashboardPage /> },
       // 员工端
       { path: 'staff', element: <StaffMyDashboard /> },
       { path: 'staff/report', element: <StaffReportPage /> },
-      { path: 'staff/tasks', element: <StaffTaskPage /> },
+      { path: 'staff/tasks', element: <Navigate to="/my-tasks" replace /> },
+      { path: 'my-tasks', element: <MyAssignedTasksPage /> },
       { path: 'staff/notifications', element: <StaffNotificationsPage /> },
       // 中控台
       { path: 'manager', element: <DepartmentOverviewPage /> },

@@ -4,12 +4,15 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'PingFang SC', 'Microsoft YaHei', 'system-ui', 'sans-serif'],
+      },
       colors: {
         brand: {
-          50: '#f1f7ff',
-          100: '#e2efff',
-          600: '#2563eb',
-          700: '#1d4ed8',
+          50: '#f8fafc',
+          100: '#f1f5f9',
+          600: '#475569',
+          700: '#334155',
           900: '#0f172a',
         },
       },

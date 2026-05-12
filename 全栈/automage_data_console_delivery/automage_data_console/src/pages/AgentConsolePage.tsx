@@ -1,45 +1,98 @@
-import { useState } from 'react'
-import { getAgentAdapter } from '../agent/agentAdapterFactory'
-import type { AgentType, AgentRunResponse } from '../agent/agentAdapter'
-import { useIdentityStore } from '../store/useIdentityStore'
-import { JsonViewer } from '../components/common/JsonViewer'
+import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '../contexts/AuthContext'
+import { PageHeader } from '../components/common/PageHeader'
+import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react'
 
 export function AgentConsolePage() {
-  const { identity } = useIdentityStore()
-  const [type, setType] = useState<AgentType>('staff')
-  const [result, setResult] = useState<AgentRunResponse>()
+  const { token } = useAuth()
 
-  const run = async () => {
-    const adapter = getAgentAdapter(type)
-    const res = await adapter.run({
-      agent_type: type,
-      org_id: identity.orgId,
-      department_id: identity.departmentId,
-      user_id: identity.userId,
-      node_id: identity.nodeId,
-      run_date: '2026-05-09',
-      input: { message: 'Run adapter in console' },
-    })
-    setResult(res)
-  }
+  // Scheduler task status
+  const { data: tasks } = useQuery({
+    queryKey: ['scheduler', 'tasks'],
+    queryFn: async () => {
+      const res = await fetch('/internal/scheduler/pending', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('查询失败')
+      return res.json()
+    },
+    refetchInterval: 30_000,
+  })
+
+  // System state
+  const { data: state } = useQuery({
+    queryKey: ['scheduler', 'state'],
+    queryFn: async () => {
+      const res = await fetch('/internal/scheduler/tick', { method: 'POST', headers: { Authorization: `Bearer ${token}` }})
+      if (!res.ok) throw new Error('查询失败')
+      return res.json()
+    },
+    refetchInterval: 120_000,
+  })
+
+  const taskList = tasks?.data?.tasks ?? []
+  const systemState = state?.data?.state ?? {}
 
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
-      <div className="console-panel p-4">
-        <p className="console-title mb-3">Agent Adapter Console</p>
-        <div className="flex items-center gap-2">
-          <select className="rounded-lg border border-slate-200 p-2 text-sm" value={type} onChange={(e) => setType(e.target.value as AgentType)}>
-            <option value="staff">staff</option>
-            <option value="manager">manager</option>
-            <option value="executive">executive</option>
-          </select>
-          <button type="button" className="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white" onClick={run}>
-            运行 Agent Adapter
-          </button>
-        </div>
-        <p className="mt-3 text-sm text-slate-600">当前默认 fallback 到本地 mock；后续可替换为真实 HTTP / WebSocket / Skill 网关。</p>
+    <div className="space-y-8">
+      <PageHeader title="Agent 控制台" description="调度器任务队列状态 · 墨智执行监控" />
+
+      {/* System State Summary */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <StateCard label="今日日报" value={String(systemState?.reports ?? '—')} icon={<CheckCircle2 size={16} />} />
+        <StateCard label="未提交" value={String(Array.isArray(systemState?.missing) ? systemState.missing.length : '—')} icon={<AlertCircle size={16} />} color="amber" />
+        <StateCard label="待汇总" value={String(Array.isArray(systemState?.pending_summaries) ? systemState.pending_summaries.length : '—')} icon={<AlertCircle size={16} />} />
+        <StateCard label="待办任务" value={String(taskList.length)} icon={<RefreshCw size={16} />} color={taskList.length > 0 ? 'blue' : 'emerald'} />
       </div>
-      <JsonViewer title="AgentRunResponse" data={result ?? { hint: '尚未运行' }} />
+
+      {/* Task Queue */}
+      <div className="console-panel overflow-hidden">
+        <div className="border-b border-slate-100 px-5 py-3">
+          <h3 className="text-sm font-semibold text-slate-800">调度器任务队列</h3>
+          <p className="text-xs text-slate-400 mt-0.5">墨智每 2 分钟轮询领取任务</p>
+        </div>
+        {taskList.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-slate-400">所有任务已完成，队列为空</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>类型</th>
+                <th>指令摘要</th>
+                <th>创建时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              {taskList.map((t: any) => (
+                <tr key={t.task_id}>
+                  <td className="border-b border-slate-100 px-4 py-2.5 text-xs text-slate-500">#{t.task_id}</td>
+                  <td className="border-b border-slate-100 px-4 py-2.5 text-xs">
+                    <span className="badge-blue">{t.type}</span>
+                  </td>
+                  <td className="border-b border-slate-100 px-4 py-2.5 text-xs text-slate-600 max-w-md truncate">{t.instruction}</td>
+                  <td className="border-b border-slate-100 px-4 py-2.5 text-xs text-slate-400">{t.created_at?.slice(0, 19)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <p className="text-xs text-slate-400">
+        墨智 (OpenClaw Agent) — 通过 /internal/scheduler/pending 轮询 · Auto01 — 飞书 App cli_aa8bbf4af4f8dbee · 老板微信 o9cq80
+      </p>
     </div>
   )
 }
+
+function StateCard({ label, value, icon, color }: any) {
+  const c = color === 'amber' ? 'border-l-amber-500' : color === 'rose' ? 'border-l-rose-500' : color === 'blue' ? 'border-l-blue-500' : 'border-l-emerald-500'
+  return (
+    <div className={`stat-card-accent ${c}`}>
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">{icon}{label}</div>
+      <p className="mt-2 text-xl font-semibold tabular-nums text-slate-900">{value}</p>
+    </div>
+  )
+}
+

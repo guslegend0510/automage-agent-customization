@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { Building2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export function LoginPage() {
@@ -15,8 +16,7 @@ export function LoginPage() {
   const [forgotLoading, setForgotLoading] = useState(false)
 
   if (user) {
-    const role = user.role
-    navigate(role === 'executive' ? '/executive' : role === 'manager' ? '/manager' : '/staff', { replace: true })
+    navigate('/', { replace: true })
     return null
   }
 
@@ -26,12 +26,12 @@ export function LoginPage() {
     setLoading(true)
     try {
       await login(username, password)
-      const stored = localStorage.getItem('automage_user')
-      const u = stored ? JSON.parse(stored) : null
-      navigate(u?.role === 'executive' ? '/executive' : u?.role === 'manager' ? '/manager' : '/staff', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败')
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const requestReset = async (e: React.FormEvent) => {
@@ -39,47 +39,92 @@ export function LoginPage() {
     setForgotLoading(true)
     try {
       const res = await fetch('/api/v1/auth/forgot-password', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: forgotUsername }),
       })
       const d = await res.json()
       setForgotMsg(d.msg || d.detail || '已发送')
-    } catch { setForgotMsg('网络错误') }
-    finally { setForgotLoading(false) }
+    } catch {
+      setForgotMsg('网络错误')
+    } finally {
+      setForgotLoading(false)
+    }
   }
 
   if (showForgot) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="w-full max-w-sm panel p-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">重置密码</h2>
+      <div className="login-bg flex min-h-screen items-center justify-center px-4">
+        <div className="panel w-full max-w-sm p-8">
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">重置密码</h2>
           <form onSubmit={requestReset} className="space-y-4">
-            <input className="input" value={forgotUsername} onChange={e => setForgotUsername(e.target.value)} placeholder="用户名" required />
-            <button type="submit" disabled={forgotLoading} className="btn-primary w-full">{forgotLoading ? '请求中...' : '获取重置令牌'}</button>
-            {forgotMsg && <p className="text-sm text-gray-500">{forgotMsg}</p>}
+            <input
+              className="input"
+              value={forgotUsername}
+              onChange={(e) => setForgotUsername(e.target.value)}
+              placeholder="用户名"
+              required
+            />
+            <button type="submit" disabled={forgotLoading} className="btn-primary w-full">
+              {forgotLoading ? '请求中…' : '获取重置令牌'}
+            </button>
+            {forgotMsg && <p className="text-sm text-slate-600">{forgotMsg}</p>}
           </form>
-          <button onClick={() => setShowForgot(false)} className="btn-ghost w-full mt-4">返回登录</button>
+          <button type="button" onClick={() => setShowForgot(false)} className="btn-ghost mt-4 w-full">
+            返回登录
+          </button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm panel p-8">
-        <div className="mb-8">
-          <p className="text-sm font-semibold text-gray-900 tracking-tight">AutoMage</p>
-          <p className="text-sm text-gray-500 mt-1">数据中台 · 组织运行控制台</p>
+    <div className="login-bg flex min-h-screen items-center justify-center px-4">
+      <div className="panel w-full max-w-md p-10">
+        <div className="mb-8 flex gap-4 border-b border-slate-100 pb-8">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white">
+            <Building2 className="h-6 w-6" strokeWidth={1.5} aria-hidden />
+          </span>
+          <div>
+            <h1 className="text-base font-semibold tracking-tight text-slate-900">AutoMage Data Console</h1>
+            <p className="mt-1 text-sm leading-relaxed text-slate-500">数据中台 · 组织运行与合规控制台</p>
+          </div>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder="用户名" autoFocus required />
-          <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="密码" required />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button type="submit" disabled={loading} className="btn-primary w-full">{loading ? '登录中...' : '登录'}</button>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">用户名</label>
+            <input
+              className="input"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoFocus
+              required
+              autoComplete="username"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">密码</label>
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          {error && <p className="text-sm text-rose-600">{error}</p>}
+          <button type="submit" disabled={loading} className="btn-primary w-full">
+            {loading ? '登录中…' : '登录'}
+          </button>
         </form>
-        <div className="flex justify-between mt-4 text-xs">
-          <button onClick={() => setShowForgot(true)} className="text-gray-400 hover:text-indigo-600">忘记密码？</button>
-          <Link to="/register" className="text-gray-400 hover:text-indigo-600">员工注册</Link>
+        <div className="mt-6 flex justify-between text-xs">
+          <button type="button" onClick={() => setShowForgot(true)} className="link font-medium no-underline hover:underline">
+            忘记密码？
+          </button>
+          <Link to="/register" className="link font-medium no-underline hover:underline">
+            员工注册
+          </Link>
         </div>
       </div>
     </div>

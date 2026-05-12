@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
+import { CheckCircle2, Clock } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { identityProfiles } from '../../config/identities'
-import { Clock, CheckCircle } from 'lucide-react'
+import { PageHeader } from '../../components/common/PageHeader'
+import { EmptyState } from '../../components/common/EmptyState'
 
 export function StaffNotificationsPage() {
   const { user, token } = useAuth()
   const staffIdentity = { ...identityProfiles.staff, userId: user?.username ?? 'zhangsan' }
 
-  // Fetch recent audit logs relevant to this staff user
   const { data, isLoading } = useQuery({
     queryKey: ['notifications', user?.username],
     queryFn: async () => {
@@ -23,22 +24,33 @@ export function StaffNotificationsPage() {
   const items = data?.data?.items ?? []
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">通知中心</h2>
-      {isLoading ? <p className="text-sm text-slate-400">加载中…</p> : items.length === 0 ? (
-        <p className="text-sm text-slate-400">暂无通知</p>
+    <div className="space-y-8">
+      <PageHeader title="通知中心" description="与您相关的审计与系统事件摘要。" />
+
+      {isLoading ? (
+        <p className="text-sm text-slate-500">加载中…</p>
+      ) : items.length === 0 ? (
+        <EmptyState message="暂无与您相关的通知。" />
       ) : (
-        <div className="space-y-2">
+        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white shadow-sm">
           {items.map((item: any, i: number) => (
-            <div key={i} className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3">
-              {item.action?.includes('create') ? <CheckCircle size={16} className="mt-0.5 text-emerald-500" /> : <Clock size={16} className="mt-0.5 text-blue-500" />}
-              <div className="flex-1">
-                <p className="text-sm text-slate-900">{item.summary}</p>
-                <p className="text-xs text-slate-400 mt-1">{item.event_at?.slice(0, 19)} · {item.target_type}</p>
+            <li key={i} className="flex gap-4 px-4 py-4 transition-colors hover:bg-slate-50/80">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50">
+                {item.action?.includes('create') ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" strokeWidth={2} aria-hidden />
+                ) : (
+                  <Clock className="h-4 w-4 text-slate-500" strokeWidth={2} aria-hidden />
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-900">{item.summary}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {item.event_at?.slice(0, 19)?.replace('T', ' ')} · {item.target_type}
+                </p>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   )
