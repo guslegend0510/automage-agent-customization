@@ -28,7 +28,7 @@ services:
       AUTOMAGE_DB_NAME: "automage"
       AUTOMAGE_DB_USER: "automage"
       AUTOMAGE_DB_PASSWORD: "automage"
-    command: ["sh", "-c", "cp configs/automage.docker.toml configs/automage.local.toml && python scripts/init_db.py configs/automage.docker.toml && python scripts/seed_minimal.py configs/automage.docker.toml && python scripts/run_api.py"]
+    command: ["sh", "-c", "cp configs/automage.docker.toml configs/automage.local.toml && python scripts/init_db.py configs/automage.docker.toml && python scripts/seed_minimal.py configs/automage.docker.toml && python scripts/run_scheduler.py & python scripts/run_api.py"]
     depends_on:
       redis:
         condition: service_healthy

@@ -282,6 +282,9 @@ app.include_router(admin_router)
 
 from automage_agents.server.onboarding_api import router as onboarding_router  # noqa: E402
 app.include_router(onboarding_router)
+
+from automage_agents.server.push_api import router as push_router  # noqa: E402
+app.include_router(push_router)
 _settings = load_runtime_settings("configs/automage.local.toml")
 
 REPORT_READ_ROLES = require_roles(AgentRole.STAFF, AgentRole.MANAGER, AgentRole.EXECUTIVE)

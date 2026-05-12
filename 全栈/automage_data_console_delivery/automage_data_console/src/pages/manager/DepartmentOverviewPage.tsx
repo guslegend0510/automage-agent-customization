@@ -1,82 +1,88 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
-import { apiClient } from '../../lib/apiClient'
 import { useRunContextStore } from '../../store/useRunContextStore'
 import { identityProfiles } from '../../config/identities'
-import { Users, FileText, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Users, FileText, ClipboardList } from 'lucide-react'
 
 export function DepartmentOverviewPage() {
-  const { user } = useAuth()
+  const { user, token } = useAuth()
   const { runDate } = useRunContextStore()
+  const mgr = { ...identityProfiles.manager, userId: user?.username ?? 'lijingli', orgId: user?.org_id ?? 'org_automage_mvp', departmentId: user?.department_id ?? 'dept_mvp_core' }
 
-  const mgrIdentity = {
-    ...identityProfiles.manager,
-    userId: user?.username ?? 'lijingli',
-    departmentId: user?.department_id ?? 'dept_mvp_core',
-    orgId: user?.org_id ?? 'org_automage_mvp',
-  }
-
-  const staffReports = useQuery({
+  const { data: reports, isLoading } = useQuery({
     queryKey: ['staffReports', 'dept', runDate],
     queryFn: async () => {
-      const res = await apiClient.getStaffReports(mgrIdentity, {
-        org_id: mgrIdentity.orgId,
-        department_id: mgrIdentity.departmentId,
-        record_date: runDate,
+      const res = await fetch(`/api/v1/report/staff?org_id=${mgr.orgId}&department_id=${mgr.departmentId}&record_date=${runDate}`, {
+        headers: { Authorization: `Bearer ${token}`, 'X-User-Id': mgr.userId, 'X-Role': 'manager', 'X-Node-Id': mgr.nodeId },
       })
-      if (!res.ok) throw new Error(res.msg ?? '查询日报失败')
-      return (res.data as { reports?: unknown[] })?.reports ?? []
+      return (await res.json())
     },
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   })
 
-  const tasks = useQuery({
+  const { data: tasks } = useQuery({
     queryKey: ['tasks', 'dept', runDate],
     queryFn: async () => {
-      const res = await apiClient.getTasks(mgrIdentity)
-      if (!res.ok) throw new Error(res.msg ?? '查询任务失败')
-      return (res.data as { tasks?: unknown[] })?.tasks ?? []
+      const res = await fetch('/api/v1/tasks', {
+        headers: { Authorization: `Bearer ${token}`, 'X-User-Id': mgr.userId, 'X-Role': 'manager', 'X-Node-Id': mgr.nodeId },
+      })
+      return (await res.json())
     },
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   })
 
-  const incidents = useQuery({
-    queryKey: ['incidents', 'dept'],
-    queryFn: async () => {
-      const res = await apiClient.getIncidents(mgrIdentity)
-      if (!res.ok) throw new Error(res.msg ?? '查询异常失败')
-      return (res.data as { incidents?: unknown[] })?.incidents ?? []
-    },
-    refetchInterval: 120_000,
-  })
-
-  const reportCount = Array.isArray(staffReports.data) ? staffReports.data.length : 0
-  const taskList = Array.isArray(tasks.data) ? tasks.data : []
-  const taskDone = taskList.filter((t: any) => t.status === 'done' || t.status === 'completed').length
-  const incidentList = Array.isArray(incidents.data) ? incidents.data : []
-  const openIncidents = incidentList.filter((i: any) => i.status === 'open' || i.status === 'in_progress').length
-  const completionRate = taskList.length > 0 ? Math.round((taskDone / taskList.length) * 100) : 0
+  const reportList = (reports?.data?.reports ?? []) as any[]
+  const taskList = (tasks?.data?.tasks ?? []) as any[]
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">部门全景</h2>
-      <div className="grid gap-3 md:grid-cols-4">
-        <StatCard icon={<Users size={18} />} label="日报提交数" value={String(reportCount)} color="blue" />
-        <StatCard icon={<FileText size={18} />} label="活跃任务" value={String(taskList.length)} color="emerald" />
-        <StatCard icon={<CheckCircle size={18} />} label="任务完成率" value={`${completionRate}%`} color="slate" />
-        <StatCard icon={<AlertTriangle size={18} />} label="未关闭异常" value={String(openIncidents)} color={openIncidents > 0 ? 'rose' : 'slate'} />
+      <h2 className="text-lg font-semibold text-slate-900">部门全景 — {runDate}</h2>
+      <div className="grid gap-3 md:grid-cols-3">
+        <MiniStat icon={<Users size={16} />} label="日报数" value={reportList.length} color="blue" />
+        <MiniStat icon={<ClipboardList size={16} />} label="任务数" value={taskList.length} color="emerald" />
+        <MiniStat icon={<FileText size={16} />} label="提交率" value={reportList.length > 0 ? '已提交' : '暂无'} color="slate" />
       </div>
-      <p className="text-xs text-slate-400">运行日: {runDate} | 部门: {user?.department_id ?? 'dept_mvp_core'}</p>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h3 className="font-semibold text-slate-800 mb-3">今日日报详情</h3>
+        {isLoading ? <p className="text-sm text-slate-400">加载中…</p> : reportList.length === 0 ? (
+          <p className="text-sm text-slate-400">今日暂无日报</p>
+        ) : (
+          <div className="space-y-3">
+            {reportList.map((r: any, i: number) => {
+              const d = r.report ?? r
+              return (
+                <div key={i} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm font-medium text-slate-900">{d.user_id ?? r.user_id}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${(d.risk_level ?? 'low') === 'high' ? 'bg-rose-100 text-rose-700' : (d.risk_level ?? 'low') === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                      {d.risk_level ?? 'low'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">{d.work_progress ?? '—'}</p>
+                  {Array.isArray(d.issues_faced) && d.issues_faced.length > 0 && (
+                    <p className="text-xs text-amber-700 mt-1">⚠️ {d.issues_faced[0]}</p>
+                  )}
+                  {d.issues_faced && !Array.isArray(d.issues_faced) && (
+                    <p className="text-xs text-amber-700 mt-1">⚠️ {d.issues_faced}</p>
+                  )}
+                  {d.next_day_plan && <p className="text-xs text-slate-500 mt-1">📅 {d.next_day_plan}</p>}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
-  const borders: Record<string, string> = { blue: 'border-l-blue-500', emerald: 'border-l-emerald-500', rose: 'border-l-rose-500', slate: 'border-l-slate-400' }
+function MiniStat({ icon, label, value, color }: any) {
+  const borders: Record<string, string> = { blue: 'border-l-blue-400', emerald: 'border-l-emerald-400', amber: 'border-l-amber-400', slate: 'border-l-slate-300' }
   return (
-    <div className={`console-panel rounded-lg border-l-4 p-4 ${borders[color] ?? borders.slate}`}>
-      <div className="flex items-center gap-2 text-slate-500">{icon}<span className="text-xs">{label}</span></div>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+    <div className={`flex items-center gap-3 rounded-lg border-l-4 bg-white p-3 ${borders[color]}`}>
+      <span className="text-slate-400">{icon}</span>
+      <div><p className="text-xs text-slate-500">{label}</p><p className="text-lg font-semibold text-slate-900">{value}</p></div>
     </div>
   )
 }
