@@ -2,14 +2,134 @@
 
 本目录当前提供面向后续 Hermes / OpenClaw 深度集成的 Agent 初版骨架。
 
+## 🚀 快速开始
+
+### 一键运行全链路工作流
+
+```bash
+cd 客制化
+python run.py
+```
+
+这将运行完整的工作流演示：
+1. ✅ Staff 提交日报
+2. ✅ Staff 查询任务
+3. ✅ Manager 分析团队日报
+4. ✅ Manager 生成汇总
+5. ✅ Executive 生成决策方案
+6. ✅ Executive 提交决策
+7. ✅ 查看系统状态
+
+### 其他常用命令
+
+```bash
+# 启动 API 服务器
+python run.py --server
+
+# 启动服务器（热重载模式）
+python run.py --server --reload
+
+# 运行集成示例
+python run.py --demo
+
+# 运行测试
+python run.py --test
+
+# 查看系统状态
+python run.py --status
+
+# 显示详细输出
+python run.py -v
+
+# 查看帮助
+python run.py --help
+```
+
+## 📦 集成接口（新增）
+
+客制化团队为 OpenClaw 和全栈前端提供统一的 Agent Runtime 接口。
+
+### 为 OpenClaw 团队提供的接口
+
+**本地 Python 集成**（推荐）：
+
+```python
+from automage_agents.integrations.hermes.client import LocalHermesClient
+from automage_agents.integrations.hermes.contracts import HermesInvokeRequest
+from automage_agents.integrations.hermes.runtime import HermesOpenClawRuntime
+
+# 初始化 Runtime
+runtime = HermesOpenClawRuntime.from_config_files()
+hermes_client = runtime.hermes_client
+
+# 调用 Skill
+request = HermesInvokeRequest(
+    skill_name="post_daily_report",
+    actor_user_id="zhangsan",
+    payload={...}
+)
+response = hermes_client.invoke_skill(request)
+```
+
+详细文档：[OpenClaw 集成指南](docs/openclaw_integration_guide.md)
+
+### 为全栈前端提供的接口
+
+**HTTP API**：
+
+```bash
+# 启动 Agent Runtime 服务
+python run.py --server
+
+# 调用 API
+curl -X POST http://localhost:8000/api/v1/agent/run \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: zhangsan" \
+  -H "X-Role: staff" \
+  -H "X-Node-Id: staff_agent_mvp_001" \
+  -d '{
+    "agent_type": "staff",
+    "org_id": "org_automage_mvp",
+    "user_id": "zhangsan",
+    "node_id": "staff_agent_mvp_001",
+    "run_date": "2026-05-13",
+    "input": {
+      "skill_name": "fetch_my_tasks",
+      "skill_args": {}
+    }
+  }'
+```
+
+详细文档：[全栈前端集成指南](docs/frontend_integration_guide.md)
+
+### 可用的 API 端点
+
+- `POST /api/v1/agent/run` - 运行 Agent Skill
+- `POST /api/v1/agent/batch-run` - 批量运行 Skills
+- `GET /api/v1/agent/skills?agent_type={type}` - 查询可用 Skills
+- `GET /api/v1/agent/health` - 基础健康检查
+- `GET /api/v1/agent/health/detailed` - 详细健康检查
+- `GET /api/v1/agent/stats/cache` - 缓存统计
+- `GET /api/v1/agent/stats/pool` - 连接池统计
+
+### 集成测试
+
+```bash
+# 运行集成测试
+python run.py --test
+
+# 或使用 pytest
+pytest tests/test_integration_interfaces.py -v
+```
+
 ## 当前已包含
 
 - `automage_agents/core/`：Agent 枚举、共享数据模型、异常类型。
 - `automage_agents/config/`：运行配置与 `user` 配置加载。
-- `automage_agents/api/`：统一后端 API Client、响应模型、传输错误处理。
+- `automage_agents/api/`：统一后端 API Client、响应模型、传输错误处理、Agent Runtime API。
 - `automage_agents/agents/`：三级 Agent 模板注册表与 `agents.md` 渲染器。
 - `automage_agents/schemas/`：Staff / Manager / Dream Schema 草案。
-- `automage_agents/integrations/`：OpenClaw / Feishu 适配层占位。
+- `automage_agents/integrations/`：OpenClaw / Feishu 适配层、Hermes Runtime。
 - `automage_agents/skills/`：Staff / Manager / Executive Skill 初版封装与本地 Skill registry。
 - `automage_agents/templates/user.md`：岗位级 Agent 的 `user.md` 模板。
 - `automage_agents/templates/*/agents.md`：base、line_worker、manager、executive 四类 Agent 模板草案。

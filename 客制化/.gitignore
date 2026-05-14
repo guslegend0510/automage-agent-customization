@@ -51,4 +51,10 @@ _cache/
 AutoMage_2_MVP_KB_v1.0.0/
 automage_m2_db_alignment/
 里程碑一_杨卓_交付v1.0.0/
+里程碑二_杨卓_交付推进与联调v1.0.0/
 *.sql
+
+# Exclude unnecessary directories
+references/
+delivery/
+agents/

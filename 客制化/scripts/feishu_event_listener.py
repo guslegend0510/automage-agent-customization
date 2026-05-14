@@ -92,7 +92,20 @@ def main() -> None:
         )
         return
     if not settings.feishu_app_id or not settings.feishu_app_secret:
-        raise RuntimeError("FEISHU_APP_ID and FEISHU_APP_SECRET are required in .env or environment variables.")
+        print("[WARNING] FEISHU_APP_ID and FEISHU_APP_SECRET not configured")
+        print("[INFO] Running in mock mode - no real Feishu connection")
+        print("[INFO] To enable Feishu integration:")
+        print("  1. Get credentials from https://open.feishu.cn/")
+        print("  2. Set AUTOMAGE_FEISHU_APP_ID and AUTOMAGE_FEISHU_APP_SECRET in .env")
+        print("")
+        print("[INFO] Press Ctrl+C to exit")
+        try:
+            while True:
+                import time
+                time.sleep(60)
+        except KeyboardInterrupt:
+            print("\n[INFO] Mock listener stopped")
+        return
     if settings.feishu_event_mode != "websocket":
         print(f"FEISHU_EVENT_MODE is `{settings.feishu_event_mode}`; websocket listener will still start for local testing.")
 
